@@ -415,7 +415,8 @@ static void draw_my_switch(void *w_, void* user_data) {
 
     cairo_new_path(wid->crb);
     cairo_arc(wid->crb,centerW, centerH, h/3.6, 0, 2 * M_PI );
-    use_bg_color_scheme(wid, NORMAL_);
+    if(wid->state==1) use_bg_color_scheme(wid, PRELIGHT_);
+    else use_bg_color_scheme(wid, NORMAL_);
     cairo_fill_preserve(wid->crb);
     knobShadowInset(wid->crb, w * 0.5 , h, centerW - centerH, 0);
     cairo_stroke (wid->crb);
