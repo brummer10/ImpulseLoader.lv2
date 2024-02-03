@@ -43,7 +43,7 @@
 	RESOURCEHEADER := xresources.h
 	GUI_LDFLAGS += -I$(HEADER_DIR) -Wl,-Bstatic -L. $(UI_LIB) \
 	-Wl,-Bdynamic `$(PKGCONFIG) --cflags --libs cairo x11` 
-	LDFLAGS += -fvisibility=hidden -shared -lm -pthread -lpthread -shared -lm  -lfftw3 -lfftw3f -lfftw3l -fPIC \
+	LDFLAGS += -fvisibility=hidden -shared -lm -pthread -lpthread -shared -lm  -lfftw3 -lfftw3f -fPIC \
 	 `$(PKGCONFIG)  --cflags --libs sndfile` \
 	-Wl,-z,noexecstack -Wl,--no-undefined -Wl,--gc-sections
 	CXXFLAGS += -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
