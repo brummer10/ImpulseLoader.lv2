@@ -1,0 +1,136 @@
+
+@prefix doap:  <http://usefulinc.com/ns/doap#> .
+@prefix foaf:   <http://xmlns.com/foaf/0.1/> .
+@prefix lv2:    <http://lv2plug.in/ns/lv2core#> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix guiext: <http://lv2plug.in/ns/extensions/ui#>.
+@prefix opts:   <http://lv2plug.in/ns/ext/options#> .
+@prefix time:   <http://lv2plug.in/ns/ext/time#>.
+@prefix units:  <http://lv2plug.in/ns/extensions/units#> .
+@prefix atom:   <http://lv2plug.in/ns/ext/atom#> .
+@prefix urid:   <http://lv2plug.in/ns/ext/urid#> .
+@prefix pprop:  <http://lv2plug.in/ns/ext/port-props#> .
+@prefix midi:   <http://lv2plug.in/ns/ext/midi#> .
+@prefix patch:  <http://lv2plug.in/ns/ext/patch#> .
+@prefix work:  <http://lv2plug.in/ns/ext/worker#> .
+@prefix bufsz: <http://lv2plug.in/ns/ext/buf-size#> .
+@prefix state:   <http://lv2plug.in/ns/ext/state#> .
+@prefix mod: <http://moddevices.com/ns/mod#>.
+
+
+<urn:name#me>
+   a foaf:Person ;
+   foaf:name "brummer" .
+
+<urn:brummer:ImpulseLoader#irfile>
+    a lv2:Parameter;
+    mod:fileTypes "audio";
+    rdfs:label "IR File";
+    rdfs:range atom:Path.
+
+<urn:brummer:ImpulseLoader>
+   a lv2:Plugin ,
+       lv2:MixerPlugin ;
+   doap:maintainer <urn:name#me> ;
+   doap:name "ImpulseLoader" ;
+   lv2:project <urn:brummer:ImpulseLoader> ;
+   lv2:requiredFeature urid:map ;
+   lv2:optionalFeature lv2:hardRTCapable ;
+   lv2:requiredFeature urid:map ,
+       bufsz:boundedBlockLength ,
+       work:schedule ;
+   bufsz:minBlockLength 64 ;
+   bufsz:maxBlockLength 8192 ;
+   lv2:extensionData work:interface ,
+                    state:interface ;
+   lv2:minorVersion 1 ;
+   lv2:microVersion 0 ;
+
+guiext:ui <urn:brummer:ImpulseLoader_ui> ;
+
+rdfs:comment """
+...
+""";
+
+    patch:writable <urn:brummer:ImpulseLoader#irfile>;
+
+   lv2:port  [
+       a lv2:AudioPort ,
+          lv2:InputPort ;
+      lv2:index 0 ;
+      lv2:symbol "in0" ;
+      lv2:name "In0" ;
+   ], [
+      a lv2:AudioPort ,
+           lv2:OutputPort ;
+      lv2:index 1 ;
+      lv2:symbol "out0" ;
+      lv2:name "Out0" ;
+   ], [
+      a lv2:InputPort ,
+          lv2:ControlPort ;
+      lv2:index 2 ;
+      lv2:designation lv2:enabled;
+      lv2:portProperty lv2:toggled ;
+      lv2:symbol "Bypass" ;
+      lv2:name "bypass" ;
+      lv2:default 1.0 ;
+      lv2:minimum 0.0 ;
+      lv2:maximum 1.0 ;
+   ], [
+      a lv2:InputPort ,
+          lv2:ControlPort ;
+      lv2:index 3 ;
+      lv2:symbol "INPUT" ;
+      lv2:name "input" ;
+      lv2:default 0.0 ;
+      lv2:minimum -20.0 ;
+      lv2:maximum 20.0 ;
+   ], [
+      a lv2:InputPort ,
+          lv2:ControlPort ;
+      lv2:index 4 ;
+      lv2:symbol "DRY_WET" ;
+      lv2:name "dry_wet" ;
+      lv2:default 100.0 ;
+      lv2:minimum 0.0 ;
+      lv2:maximum 100.0 ;
+   ], [
+        a lv2:InputPort ,
+            atom:AtomPort ;
+        <http://lv2plug.in/ns/ext/resize-port#minimumSize> 8192 ;
+        atom:bufferType atom:Sequence ;
+        atom:supports patch:Message ;
+        lv2:designation lv2:control ;
+        lv2:index 5 ;
+        lv2:symbol "CONTROL" ;
+        lv2:name "CONTROL" ;
+    ], [
+        a lv2:OutputPort ,
+            atom:AtomPort ;
+        <http://lv2plug.in/ns/ext/resize-port#minimumSize> 8192 ;
+        atom:bufferType atom:Sequence ;
+        atom:supports patch:Message ;
+        lv2:designation lv2:control ;
+        lv2:index 6 ;
+        lv2:symbol "NOTIFY" ;
+        lv2:name "NOTIFY";
+    ] .
+
+
+<urn:brummer:ImpulseLoader_ui>
+   a guiext:X11UI;
+   guiext:binary <ImpulseLoader_ui.so> ;
+       lv2:extensionData guiext::idle ;
+       lv2:extensionData guiext:resize ;
+       lv2:extensionData guiext:idleInterface ;
+       lv2:requiredFeature guiext:idleInterface ;
+       lv2:optionalFeature opts:options ;
+       opts:supportedOption guiext:scaleFactor ; 
+        guiext:portNotification [
+            guiext:plugin  <urn:brummer:ImpulseLoader> ;
+            lv2:symbol "NOTIFY" ;
+            guiext:notifyType atom:Blank
+        ] .
+
