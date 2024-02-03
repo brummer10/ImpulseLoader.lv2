@@ -293,8 +293,8 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
     set_widget_color(ui->widget[2], 0, 3,  0.682, 0.686, 0.686, 1.0);
 
     ui->widget[3] = add_lv2_switch (ui->widget[3], ui->win, 2, "Off/On", ui, 220,  160, 60, 60);
-    set_widget_color(ui->widget[1], 0, 0, 0.3, 0.55, 0.91, 1.0);
-    set_widget_color(ui->widget[1], 0, 3,  0.682, 0.686, 0.686, 1.0);
+    set_widget_color(ui->widget[3], 0, 0, 0.3, 0.55, 0.91, 1.0);
+    set_widget_color(ui->widget[3], 0, 3,  0.682, 0.686, 0.686, 1.0);
 
 }
 
