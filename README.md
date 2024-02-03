@@ -4,7 +4,7 @@ This is a simple, mono, IR-File loader/convolution LV2 plug.
 
 ![ImpulseLoader](https://raw.githubusercontent.com/brummer10/ImpulseLoader.lv2/master/ImpulseLoader.png)
 
-## Supported File formats been:
+## Supported File Formats:
 
 - WAF
 - AIFF
@@ -19,6 +19,8 @@ IR-Files will be resampled on the fly to match the session Sample Rate.
 
 ## Dependencies
 
+- libsndfile1-dev
+- libfftw3-dev
 - libcairo2-dev
 - libx11-dev
 - lv2-dev

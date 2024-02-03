@@ -422,6 +422,8 @@ static void draw_my_switch(void *w_, void* user_data) {
 
     /** show label below the knob**/
     cairo_text_extents_t extents;
+    cairo_select_font_face (wid->crb, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                               CAIRO_FONT_WEIGHT_BOLD);
     use_text_color_scheme(wid, get_color_state(wid));
     cairo_set_font_size (wid->crb, wid->app->normal_font+4);
     cairo_text_extents(wid->crb,wid->label , &extents);

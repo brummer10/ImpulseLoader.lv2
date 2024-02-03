@@ -1,5 +1,5 @@
-
-
+	
+	STRIP ?= strip
 	# check if user is root
 	user = $(shell whoami)
 	ifeq ($(user),root)
@@ -8,125 +8,162 @@
 	INSTALL_DIR = ~/.lv2
 	endif
 
-
-	# check LD version
-	ifneq ($(shell xxd --version 2>&1 | head -n 1 | grep xxd),)
-		USE_XXD = 1
-	else ifneq ($(shell $(LD) --version 2>&1 | head -n 1 | grep LLD),)
-		ifneq ($(shell uname -a | grep  x86_64), )
-			LDEMULATION := elf_x86_64
-		else ifneq ($(shell uname -a | grep amd64), )
-			LDEMULATION := elf_x86_64
-		else ifneq ($(shell uname -a | grep i386), )
-			LDEMULATION := elf_i386
+	# check CPU and supported optimization flags
+	ifneq ($(shell cat /proc/cpuinfo | grep sse3 ) , )
+		SSE_CFLAGS = -msse3 -mfpmath=sse -mfxsr
+	else ifneq ($(shell cat /proc/cpuinfo | grep sse2 ) , )
+		SSE_CFLAGS = -msse2 -mfpmath=sse -mfxsr
+	else ifneq ($(shell cat /proc/cpuinfo | grep sse ) , )
+		SSE_CFLAGS = -msse -mfpmath=sse -mfxsr
+		else ifneq ($(shell cat /proc/cpuinfo | grep ARM ) , )
+		ifneq ($(shell cat /proc/cpuinfo | grep ARMv7 ) , )
+			ifneq ($(shell cat /proc/cpuinfo | grep vfpd32 ) , )
+				SSE_CFLAGS = -march=armv7-a -mfpu=vfpv3 
+			else ifneq ($(shell cat /proc/cpuinfo | grep vfpv3 ) , )
+				SSE_CFLAGS = -march=armv7-a -mfpu=vfpv3
+			endif
+		else
+			ARMCPU = "YES"
 		endif
-		USE_LDD = 1
-	else ifneq ($(shell gold --version 2>&1 | head -n 1 | grep gold),)
-		LD = gold
+	else
+		SSE_CFLAGS =
 	endif
 
-
+	# set bundle name
 	NAME = ImpulseLoader
-	space := $(subst ,, )
-	EXEC_NAME := $(subst $(space),_,$(NAME))
-	BUNDLE = $(EXEC_NAME).lv2
-	RESOURCES_DIR :=../resources/
+	BUNDLE = $(NAME).lv2
+	VER = 0.9.2
+
 	LIB_DIR := ../libxputty/libxputty/
 	HEADER_DIR := $(LIB_DIR)include/
-	UI_LIB:= $(LIB_DIR)libxputty.a
-	STRIP ?= strip
+	SCALA_DIR := ./libscala-file/
 
-	RESOURCES := $(wildcard $(RESOURCES_DIR)*.png)
-	RESOURCES_OBJ := $(notdir $(patsubst %.png,%.o,$(RESOURCES)))
-	RESOURCES_LIB := $(notdir $(patsubst %.png,%.a,$(RESOURCES)))
-	RESOURCE_EXTLD := $(notdir $(patsubst %.png,%_png,$(RESOURCES)))
-	RESOURCEHEADER := xresources.h
-	GUI_LDFLAGS += -I$(HEADER_DIR) -Wl,-Bstatic -L. $(UI_LIB) \
-	-Wl,-Bdynamic `$(PKGCONFIG) --cflags --libs cairo x11` 
-	LDFLAGS += -fvisibility=hidden -shared -lm -pthread -lpthread -shared -lm  -lfftw3 -lfftw3f -fPIC \
-	 `$(PKGCONFIG)  --cflags --libs sndfile` \
-	-Wl,-z,noexecstack -Wl,--no-undefined -Wl,--gc-sections
-	CXXFLAGS += -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
-	-I./DSP/zita-resampler-1.1.0/zita-resampler -fPIC -DPIC -Wall -funroll-loops \
-	-fomit-frame-pointer -fstrength-reduce -fstack-protector -fvisibility=hidden \
-	-fdata-sections -Wl,--gc-sections -Wl,--exclude-libs,ALL
-	SLP_LDFLAGS += -fvisibility=hidden -Wl,-Bstatic `pkg-config --cflags --libs xputty` \
-	-Wl,-Bdynamic `$(PKGCONFIG) --cflags --libs cairo x11 lv2 fftw3` \
-	-shared -lm -lfftw3 -fPIC -Wl,-z,noexecstack -Wl,--no-undefined -Wl,--gc-sections
-	CFLAGS := -O2 -D_FORTIFY_SOURCE=2 -Wall -fstack-protector -fvisibility=hidden \
-	-fdata-sections -Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL
-	FAUSTFLAGS := 
+	# set compile flags
+ifeq ($(TARGET), Linux)
+	CXXFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall -funroll-loops \
+	 -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
+	-fstack-protector -ffast-math -fomit-frame-pointer -fstrength-reduce \
+	-fdata-sections -Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL $(SSE_CFLAGS)
 
-.PHONY : all mod install uninstall
+	CFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall \
+	-fstack-protector -ffast-math -fomit-frame-pointer -fstrength-reduce \
+	-fdata-sections -Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL $(SSE_CFLAGS)
 
-.NOTPARALLEL:
+	LDFLAGS += -I. -I$(SCALA_DIR) -lm -pthread -lpthread -shared -lm -Wl,-z,noexecstack -Wl,--no-undefined \
+	-fvisibility=hidden `$(PKGCONFIG) --cflags --libs sndfile` -lfftw3 -lfftw3f
 
-all: $(RESOURCEHEADER) $(EXEC_NAME)
+	GUI_LDFLAGS +=  -I$(HEADER_DIR) -Wl,-z,noexecstack -Wl,--no-undefined -fvisibility=hidden \
+	-L. $(LIB_DIR)libxputty.a -shared `pkg-config --cflags --libs cairo x11` -lm  -Wl,-z,nodelete \
+	-pthread -lpthread
+else ifeq ($(TARGET), Windows)
+	CXXFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall -funroll-loops \
+	 -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
+	-fstack-protector -ffast-math -fomit-frame-pointer -fstrength-reduce \
+	-fdata-sections -Wl,--gc-sections -Wl,--exclude-libs,ALL $(SSE_CFLAGS)
 
-	@mkdir -p ./$(BUNDLE)
-	@cp ./*.ttl ./$(BUNDLE)
-	@cp ./*.so ./$(BUNDLE)
-	@if [ -f ./$(BUNDLE)/$(EXEC_NAME).so ]; then echo "build finish, now run make install"; \
-	else echo "sorry, build failed"; fi
+	CFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall \
+	-fdata-sections -Wl,--gc-sections -Wl,--exclude-libs,ALL 
 
-mod : clean nogui
-	@mkdir -p ./$(BUNDLE)
-	@cp -R ./MOD/* ./$(BUNDLE)
-	@mv ./*.so ./$(BUNDLE)
-	@if [ -f ./$(BUNDLE)/$(EXEC_NAME).so ]; then echo $(BLUE)"build finish, now run make install"; \
-	else echo $(RED)"sorry, build failed"; fi
+	LDFLAGS += -I. -I$(SCALA_DIR) `$(PKGCONFIG) $(PKGCONFIG_FLAGS)  --cflags --libs sndfile` \
+	-shared -lm  -lfftw3 -lfftw3f $(PAWPAW_LFLAGS)
+
+	GUI_LDFLAGS += -I$(HEADER_DIR) -static-libgcc -static-libstdc++ \
+	`$(PKGCONFIG) $(PKGCONFIG_FLAGS) --cflags --libs cairo ` -pthread -lpthread \
+	-L. $(LIB_DIR)libxputty.$(STATIC_LIB_EXT) -shared  -lm $(PAWPAW_LFLAGS)
+
+	TTLUPDATE = sed -i '/lv2:binary/ s/\.so/\.dll/ ' ../bin/$(BUNDLE)/manifest.ttl
+	TTLUPDATEGUI = sed -i '/a guiext:X11UI/ s/X11UI/WindowsUI/ ; /guiext:binary/ s/\.so/\.dll/ ' ../bin/$(BUNDLE)/$(NAME).ttl
+endif
+	# invoke build files
+	OBJECTS = ImpulseLoader.cpp 
+	GUI_OBJECTS = ImpulseLoader.c
+	## output style (bash colours)
+	BLUE = "\033[1;34m"
+	RED =  "\033[1;31m"
+	NONE = "\033[0m"
+
+.PHONY : $(HEADER_DIR)*.h mod all clean install uninstall 
+
+all : check $(NAME)
+	$(QUIET)mkdir -p ../bin/$(BUNDLE)
+	$(QUIET)cp ./*.ttl ../bin/$(BUNDLE)
+	$(QUIET)$(TTLUPDATE)
+	$(QUIET)$(TTLUPDATEGUI)
+	$(QUIET)mv ./*.$(LIB_EXT) ../bin/$(BUNDLE)
+	@if [ -f ../bin/$(BUNDLE)/$(NAME).$(LIB_EXT) ]; then \
+		$(B_ECHO) "build finish, . . . $(reset)"; \
+	else \
+		$(R_ECHO) "sorry, build failed$(reset)"; \
+	fi
+	@$(B_ECHO) "=================== DONE =======================$(reset)"
+
+mod : check clean nogui
+	@mkdir -p ../bin/$(BUNDLE)
+	@cp -R ./MOD/* ../bin/$(BUNDLE)
+	@mv ./*.$(LIB_EXT) ../bin/$(BUNDLE)
+	@if [ -f ../bin/$(BUNDLE)/$(NAME).$(LIB_EXT) ]; then \
+		$(B_ECHO) "build finish, . . . $(reset)"; \
+	else \
+		$(R_ECHO) "sorry, build failed$(reset)"; \
+	fi
+	@$(B_ECHO) "=================== DONE =======================$(reset)"
+
+check :
+ifdef ARMCPU
+	@echo $(RED)ARM CPU DEDECTED, please check the optimization flags
 	@echo $(NONE)
-
-$(RESOURCEHEADER): $(RESOURCES_OBJ)
-	@rm -f $(RESOURCEHEADER)
-	@for f in $(RESOURCE_EXTLD); do \
-		echo 'EXTLD('$${f}')' >> $(RESOURCEHEADER) ; \
-	done
-
-ifdef USE_XXD
-$(RESOURCES_OBJ): $(RESOURCES)
-	@#use this line to regenerate the *.c files from used images
-	@#cd $(RESOURCES_DIR) && xxd -i $(patsubst %.o,%.png,$@) > $(patsubst %.o,%.c,$@)
-	$(CC) -c $(RESOURCES_DIR)$(patsubst %.o,%.c,$@) -o $@
-	$(AR) rcs $(patsubst %.o,%.a,$@) $@
-else ifdef USE_LDD
-$(RESOURCES_OBJ): $(RESOURCES)
-	cd $(RESOURCES_DIR) && $(LD) -r -b binary -m $(LDEMULATION) -z noexecstack $(patsubst %.o,%.png,$@) -o ../$@
-	$(AR) rcs $(patsubst %.o,%.a,$@) $@
-	LDFLAGS += -DUSE_LD=1
-else
-$(RESOURCES_OBJ): $(RESOURCES)
-	cd $(RESOURCES_DIR) && $(LD) -r -b binary -z noexecstack --strip-all $(patsubst %.o,%.png,$@) -o ../$@
-	$(AR) rcs $(patsubst %.o,%.a,$@) $@
-	LDFLAGS += -DUSE_LD=1
 endif
 
-$(EXEC_NAME):$(RESOURCES_OBJ)
-	@# use this line when you include libxputty as submodule
-	@$(CC) -DUSE_ATOM $(CFLAGS) '$(NAME).c' -L. $(RESOURCES_LIB) $(UI_LIB) -o '$(EXEC_NAME)_ui.so' $(LDFLAGS) $(GUI_LDFLAGS) -I./
-	@$(CXX) -DUSE_ATOM $(CXXFLAGS) $(FAUSTFLAGS) $(EXEC_NAME).cpp $(LDFLAGS) -o $(EXEC_NAME).so
-	@#$(CC)   $(CFLAGS) '$(NAME).c' -L. $(RESOURCES_LIB) -o '$(EXEC_NAME)_ui.so' $(SLP_LDFLAGS) -I./
-	@$(STRIP) -s -x -X -R .comment -R .note.ABI-tag $(EXEC_NAME).so
-	@$(STRIP) -s -x -X -R .comment -R .note.ABI-tag $(EXEC_NAME)_ui.so
+clean :
+	$(QUIET)rm -f *.a *.o *.so *.dll 
+	$(QUIET)rm -f $(NAME).$(LIB_EXT)
+	$(QUIET)rm -rf ../bin
+ifndef EXTRAQUIET
+	@$(ECHO) ". ., clean up$(reset)"
+endif
 
-nogui : clean
-	$(CXX) $(CXXFLAGS) $(EXEC_NAME).cpp $(LDFLAGS) -o $(EXEC_NAME).so
-	$(STRIP) -s -x -X -R .comment -R .note.ABI-tag $(EXEC_NAME).so
+dist-clean :
+	$(QUIET)rm -f *.a *.o *.so *.dll
+	$(QUIET)rm -f $(NAME).$(LIB_EXT)
+	$(QUIET)rm -rf ../bin
+ifndef EXTRAQUIET
+	@$(ECHO) ". ., clean up$(reset)"
+endif
 
 install :
-ifneq ("$(wildcard ./$(BUNDLE))","")
-	@mkdir -p $(DESTDIR)$(INSTALL_DIR)/$(BUNDLE)
-	@cp -r ./$(BUNDLE)/* $(DESTDIR)$(INSTALL_DIR)/$(BUNDLE)
-	@echo ". ., done"
+ifeq ($(TARGET), Linux)
+ifneq ("$(wildcard ../bin/$(BUNDLE))","")
+	@$(ECHO) "Install $(NAME).lv2$(reset)"
+	$(QUIET)mkdir -p $(DESTDIR)$(INSTALL_DIR)/$(BUNDLE)
+	$(QUIET)cp -r ../bin/$(BUNDLE)/* $(DESTDIR)$(INSTALL_DIR)/$(BUNDLE)
+	$(QUIET)$(B_ECHO) ". . , done$(reset)"
 else
-	@echo ". ., you must build first"
+	$(QUIET)$(R_ECHO) ". . , you must build first$(reset)"
+endif
+else
+	$(QUIET)$(R_ECHO) "Install is not implemented for windows, please copy the folder $(NAME).lv2 to Program Files/Common Files/LV2$(reset)"
 endif
 
 uninstall :
-	@rm -rf $(INSTALL_DIR)/$(BUNDLE)
-	@echo ". ., done"
+ifeq ($(TARGET), Linux)
+	@$(ECHO) "Uninstall $(NAME).lv2$(reset)"
+	$(QUIET)rm -rf $(INSTALL_DIR)/$(BUNDLE)
+	$(QUIET)$(B_ECHO) ". . , done$(reset)"
+else
+	$(QUIET)$(R_ECHO) "Uninstall is not implemented for windows, please remove the folder $(NAME).lv2 from Program Files/Common Files/LV2$(reset)"
+endif
+$(NAME) :
+	@$(B_ECHO) "Compiling $@.$(LIB_EXT) $(reset)"
+	$(QUIET)$(CXX) -DUSE_ATOM -std=c++11  $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) -o $(NAME).$(LIB_EXT)
+	@$(B_ECHO) "Compiling $@_ui.$(LIB_EXT) $(reset)"
+	$(QUIET)$(CC) -DUSE_ATOM $(CFLAGS) $(GUI_OBJECTS) $(GUI_LDFLAGS) -o $(NAME)_ui.$(LIB_EXT)
+	$(QUIET)$(STRIP) -s -x -X -R .comment -R .note.ABI-tag $(NAME).$(LIB_EXT)
+	$(QUIET)$(STRIP) -s -x -X -R .comment -R .note.ABI-tag $(NAME)_ui.$(LIB_EXT)
 
-clean:
-	rm -f *.a *.o *.so xresources.h
-	@rm -rf ./$(BUNDLE)
+nogui :
+	@$(B_ECHO) "Compiling $(NAME).$(LIB_EXT) $(reset)"
+	$(QUIET)$(CXX) -std=c++11  $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) -o $(NAME).$(LIB_EXT)
+	$(QUIET)$(STRIP) -s -x -X -R .comment -R .note.ABI-tag $(NAME).$(LIB_EXT)
 
+doc:
+	#pass
