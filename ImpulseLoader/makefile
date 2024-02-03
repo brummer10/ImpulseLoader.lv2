@@ -42,15 +42,16 @@
 	RESOURCE_EXTLD := $(notdir $(patsubst %.png,%_png,$(RESOURCES)))
 	RESOURCEHEADER := xresources.h
 	GUI_LDFLAGS += -I$(HEADER_DIR) -Wl,-Bstatic -L. $(UI_LIB) \
-	-Wl,-Bdynamic `pkg-config --cflags --libs cairo x11` 
-	LDFLAGS += -fvisibility=hidden -shared -lm -pthread -lpthread -shared -lm -lsndfile -lfftw3 -lfftw3f -lfftw3l -fPIC \
+	-Wl,-Bdynamic `$(PKGCONFIG) --cflags --libs cairo x11` 
+	LDFLAGS += -fvisibility=hidden -shared -lm -pthread -lpthread -shared -lm  -lfftw3 -lfftw3f -lfftw3l -fPIC \
+	 `$(PKGCONFIG)  --cflags --libs sndfile` \
 	-Wl,-z,noexecstack -Wl,--no-undefined -Wl,--gc-sections
 	CXXFLAGS += -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
 	-I./DSP/zita-resampler-1.1.0/zita-resampler -fPIC -DPIC -Wall -funroll-loops \
 	-fomit-frame-pointer -fstrength-reduce -fstack-protector -fvisibility=hidden \
 	-fdata-sections -Wl,--gc-sections -Wl,--exclude-libs,ALL
 	SLP_LDFLAGS += -fvisibility=hidden -Wl,-Bstatic `pkg-config --cflags --libs xputty` \
-	-Wl,-Bdynamic `pkg-config --cflags --libs cairo x11 lv2 fftw3` \
+	-Wl,-Bdynamic `$(PKGCONFIG) --cflags --libs cairo x11 lv2 fftw3` \
 	-shared -lm -lfftw3 -fPIC -Wl,-z,noexecstack -Wl,--no-undefined -Wl,--gc-sections
 	CFLAGS := -O2 -D_FORTIFY_SOURCE=2 -Wall -fstack-protector -fvisibility=hidden \
 	-fdata-sections -Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL
