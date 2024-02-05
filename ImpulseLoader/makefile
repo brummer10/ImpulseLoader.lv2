@@ -8,7 +8,8 @@
 	INSTALL_DIR = ~/.lv2
 	endif
 
-	# check CPU and supported optimization flags
+	# check CPU and supported optimization flagsi
+	ifneq ("$(wildcard /proc/cpuinfo)","")
 	ifneq ($(shell cat /proc/cpuinfo | grep sse3 ) , )
 		SSE_CFLAGS = -msse3 -mfpmath=sse -mfxsr
 	else ifneq ($(shell cat /proc/cpuinfo | grep sse2 ) , )
@@ -27,6 +28,7 @@
 		endif
 	else
 		SSE_CFLAGS =
+	endif
 	endif
 
 	# set bundle name
