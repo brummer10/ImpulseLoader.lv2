@@ -50,7 +50,11 @@
 guiext:ui <urn:brummer:ImpulseLoader_ui> ;
 
 rdfs:comment """
-...
+ImpulseLoader is a simple mono IR-File loader/convolver.
+IR-File could be loaded via the internal File browser or, when supported by the host, via drag and drop.
+The Input controls the gain input for the convolution engine, it didn't affect the dry part of the Dry/Wet control.
+IR-Files will be resampled on the fly, when needed. 
+If there are more then 1 channel in the IR-File, only the first channel will be loaded. 
 """;
 
     patch:writable <urn:brummer:ImpulseLoader#irfile>;

@@ -265,7 +265,7 @@ void XImpulseLoader::do_work_mono()
     preampconv.set_samplerate(s_rate);
     preampconv.set_buffersize(bufsize);
 
-    preampconv.configure(ir_file, 1.0, 0.0, 0.0, 0, 0, 0);
+    preampconv.configure(ir_file, 1.0, 0, 0, 0, 0, 0);
     while (!preampconv.checkstate());
     if(!preampconv.start(rt_prio, rt_policy)) {
         printf("preamp impulse convolver update fail\n");
