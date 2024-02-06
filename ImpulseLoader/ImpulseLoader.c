@@ -302,6 +302,7 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
     const X11LV2URIs* uris = &ps->uris;
     ps->filename = strdup("None");
     ps->dir_name = NULL;
+    ps->fname = NULL;
     ps->filepicker = (FilePicker*)malloc(sizeof(FilePicker));
     fp_init(ps->filepicker, "/");
 #ifdef __linux__

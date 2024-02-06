@@ -27,6 +27,8 @@ IR-Files will be resampled on the fly to match the session Sample Rate.
 
 ## Build
 
+[![build](https://github.com/brummer10/ImpulseLoader.lv2/actions/workflows/build.yml/badge.svg)](https://github.com/brummer10/ImpulseLoader.lv2/actions/workflows/build.yml)
+
 - git submodule init
 - git submodule update
 - make
