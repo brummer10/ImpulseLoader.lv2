@@ -39,7 +39,9 @@ typedef struct {
 typedef struct {
     LV2_Atom_Forge forge;
     X11LV2URIs   uris;
+    FilePicker *filepicker;
     char *filename;
+    char *fname;
     char *dir_name;
 } X11_UI_Private_t;
 
@@ -169,6 +171,7 @@ static void file_load_response(void *w_, void* user_data) {
         free(ps->filename);
         ps->filename = NULL;
         ps->filename = strdup("None");
+        expose_widget(ui->win);
     }
 }
 
@@ -245,6 +248,36 @@ void first_loop(X11_UI *ui) {
     notify_dsp(ui);
 }
 
+static void file_menu_callback(void *w_, void* user_data) {
+    Widget_t *w = (Widget_t*)w_;
+    Widget_t *p = (Widget_t*)w->parent;
+    X11_UI *ui = (X11_UI*) p->parent_struct;
+    X11_UI_Private_t *ps = (X11_UI_Private_t*)ui->private_ptr;
+    if (!ps->filepicker->file_counter) return;
+    int v = (int)adj_get_value(w->adj);
+    free(ps->fname);
+    ps->fname = NULL;
+    asprintf(&ps->fname, "%s%s%s", ps->dir_name, PATH_SEPARATOR, ps->filepicker->file_names[v]);
+    file_load_response(ui->widget[0], (void*)&ps->fname);
+}
+
+static void rebuild_file_menu(X11_UI *ui) {
+    ui->file_button->func.value_changed_callback = dummy_callback;
+    X11_UI_Private_t *ps = (X11_UI_Private_t*)ui->private_ptr;
+    combobox_delete_entrys(ui->file_button);
+    fp_get_files(ps->filepicker, ps->dir_name, 0, 1);
+    int active_entry = ps->filepicker->file_counter-1;
+    int i = 0;
+    for(;i<ps->filepicker->file_counter;i++) {
+        combobox_add_entry(ui->file_button, ps->filepicker->file_names[i]);
+        if (strcmp(basename(ps->filename),ps->filepicker->file_names[i]) == 0) 
+            active_entry = i;
+    }
+    adj_set_value(ui->file_button->adj, active_entry);
+    combobox_set_menu_size(ui->file_button, min(14, ps->filepicker->file_counter));
+    ui->file_button->func.value_changed_callback = file_menu_callback;
+}
+
 void plugin_value_changed(X11_UI *ui, Widget_t *w, PortIndex index) {
     // do special stuff when needed
 }
@@ -269,6 +302,14 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
     const X11LV2URIs* uris = &ps->uris;
     ps->filename = strdup("None");
     ps->dir_name = NULL;
+    ps->filepicker = (FilePicker*)malloc(sizeof(FilePicker));
+    fp_init(ps->filepicker, "/");
+#ifdef __linux__
+    asprintf(&ps->filepicker->filter ,"%s", "audio");
+#else
+    asprintf(&ps->filepicker->filter ,"%s", ".wav");
+#endif
+    ps->filepicker->use_filter = 1;
 #endif
 
 #ifdef __linux__
@@ -276,7 +317,7 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
 #endif
     ui->win->func.dnd_notify_callback = dnd_load_response;
 
-    ui->widget[0] = add_lv2_file_button (ui->widget[0], ui->win, -4, "IR File", ui, 30,  254, 60, 30);
+    ui->widget[0] = add_lv2_file_button (ui->widget[0], ui->win, -4, "IR File", ui, 30,  254, 50, 30);
 #ifdef USE_ATOM
     ui->widget[0]->parent_struct = (void*)&uris->xlv2_irfile;
     ui->widget[0]->func.user_callback = controller_callback;
@@ -296,11 +337,16 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
     set_widget_color(ui->widget[3], 0, 0, 0.3, 0.55, 0.91, 1.0);
     set_widget_color(ui->widget[3], 0, 3,  0.682, 0.686, 0.686, 1.0);
 
+    ui->file_button = add_lv2_button(ui->file_button, ui->win, "", ui, 450,  254, 22, 30);
+    combobox_add_entry(ui->file_button, "None");
+    ui->file_button->func.value_changed_callback = file_menu_callback;
 }
 
 void plugin_cleanup(X11_UI *ui) {
 #ifdef USE_ATOM
     X11_UI_Private_t *ps = (X11_UI_Private_t*)ui->private_ptr;
+    fp_free(ps->filepicker);
+    free(ps->fname);
     free(ps->filename);
     free(ps->dir_name);
 #endif
@@ -364,6 +410,7 @@ void plugin_port_event(LV2UI_Handle handle, uint32_t port_index,
                             ps->dir_name = strdup(dirname((char*)uri));
                             FileButton *filebutton = (FileButton*)ui->widget[0]->private_struct;
                             filebutton->path = ps->dir_name;
+                            rebuild_file_menu(ui);
                             expose_widget(ui->win);
                         }
                     }
