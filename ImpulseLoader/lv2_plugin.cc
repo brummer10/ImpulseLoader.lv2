@@ -172,7 +172,7 @@ static void draw_window(void *w_, void* user_data) {
 
         cairo_text_extents(w->crb, label, &extents_f);
         double twf = extents_f.width/2.0;
-        cairo_move_to (w->crb, max(110 * w->app->hdpi,(w->scale.init_width*0.5)-twf), w->scale.init_height-35 * w->app->hdpi );
+        cairo_move_to (w->crb, max(100 * w->app->hdpi,(w->scale.init_width*0.5)-twf), w->scale.init_height-35 * w->app->hdpi );
         cairo_show_text(w->crb, label);       
     }
 #endif
