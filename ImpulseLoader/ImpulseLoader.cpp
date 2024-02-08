@@ -23,6 +23,7 @@
 
 #define PLUGIN_URI "urn:brummer:ImpulseLoader"
 #define XLV2__IRFILE "urn:brummer:ImpulseLoader#irfile"
+#define XLV2__GUI "urn:brummer:ImpulseLoader#gui"
 
 using std::min;
 using std::max;
@@ -57,6 +58,7 @@ private:
     uint32_t bufsize;
     uint32_t cur_bufsize;
     uint32_t s_rate;
+    int ui_run;
     // bypass ramping
     bool needs_ramp_down;
     bool needs_ramp_up;
@@ -84,6 +86,7 @@ private:
     LV2_Atom_Forge_Frame notify_frame;
 
     LV2_URID xlv2_ir_file;
+    LV2_URID xlv2_gui;
     LV2_URID atom_Object;
     LV2_URID atom_Int;
     LV2_URID atom_Float;
@@ -180,6 +183,7 @@ XImpulseLoader::~XImpulseLoader() {
 
 inline void XImpulseLoader::map_uris(LV2_URID_Map* map) {
     xlv2_ir_file = map->map(map->handle, XLV2__IRFILE);
+    xlv2_gui = map->map(map->handle, XLV2__GUI);
     atom_Object = map->map(map->handle, LV2_ATOM__Object);
     atom_Int = map->map(map->handle, LV2_ATOM__Int);
     atom_Float = map->map(map->handle, LV2_ATOM__Float);
@@ -201,6 +205,7 @@ void XImpulseLoader::init_dsp_(uint32_t rate, uint32_t bufsize_)
     plugin1->init(rate);
     plugin2->init(rate);
     s_rate = rate;
+    ui_run = 0;
     if (!rt_policy) rt_policy = SCHED_FIFO;
     // set values for internal ramping
     ramp_down_step = 32 * (256 * rate) / 48000; 
@@ -268,12 +273,13 @@ void XImpulseLoader::do_work_mono()
     preampconv.configure(ir_file, 1.0, 0, 0, 0, 0, 0);
     while (!preampconv.checkstate());
     if(!preampconv.start(rt_prio, rt_policy)) {
+        ir_file = "";
         printf("preamp impulse convolver update fail\n");
     } else {
-        _execute.store(false, std::memory_order_release);
         needs_ramp_up = true;
-        _notify_ui.store(true, std::memory_order_release);
     }
+    _execute.store(false, std::memory_order_release);
+    _notify_ui.store(true, std::memory_order_release);
 }
 
 inline LV2_Atom* XImpulseLoader::write_set_file(LV2_Atom_Forge* forge, const char* filename) {
@@ -285,7 +291,7 @@ inline LV2_Atom* XImpulseLoader::write_set_file(LV2_Atom_Forge* forge, const cha
     lv2_atom_forge_key(forge, patch_property);
     lv2_atom_forge_urid(forge, xlv2_ir_file);
     lv2_atom_forge_key(forge, patch_value);
-    lv2_atom_forge_path(forge, filename, strlen(filename));
+    lv2_atom_forge_path(forge, filename, strlen(filename) + 1);
 
     lv2_atom_forge_pop(forge, &frame);
     return set;
@@ -321,8 +327,7 @@ void XImpulseLoader::run_dsp_(uint32_t n_samples)
         if (lv2_atom_forge_is_object_type(&forge, ev->body.type)) {
             const LV2_Atom_Object* obj = (LV2_Atom_Object*)&ev->body;
             if (obj->body.otype == patch_Get) {
-                if (!ir_file.empty())
-                    write_set_file(&forge, ir_file.data());
+                write_set_file(&forge, ir_file.data());
             } else if (obj->body.otype == patch_Set) {
                 const LV2_Atom* file_path = read_set_file(obj);
                 if (file_path) {

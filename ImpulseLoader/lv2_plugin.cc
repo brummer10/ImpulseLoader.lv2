@@ -613,6 +613,67 @@ Widget_t* add_lv2_file_button(Widget_t *w, Widget_t *p, PortIndex index, const c
     return w;
 }
 
+void wavePattern(cairo_t *cr, int x, int y, int h) {
+    cairo_pattern_t *pat = cairo_pattern_create_linear (x, y, x, h);
+    cairo_pattern_add_color_stop_rgba
+        (pat, 0, 0.3, 0.55, 0.91, 1.0 * 0.8);
+    cairo_pattern_add_color_stop_rgba
+        (pat, 0.5, 0.3, 0.55, 0.91, 1.0 * 0.4);
+    cairo_pattern_add_color_stop_rgba
+        (pat, 1, 0.3, 0.55, 0.91, 1.0 * 0.1);
+    cairo_pattern_set_extend(pat, CAIRO_EXTEND_REFLECT);
+    cairo_set_source(cr, pat);
+    cairo_fill_preserve (cr);
+    cairo_pattern_destroy (pat);
+
+}
+
+void draw_waveview(void *w_, void* user_data) {
+    Widget_t *w = (Widget_t*)w_;
+    WaveView_t *wave_view = (WaveView_t*)w->private_struct;
+    Metrics_t metrics;
+    os_get_window_metrics(w, &metrics);
+    int width_t = metrics.width;
+    int height_t = metrics.height;
+    if (!metrics.visible) return;
+    int half_height_t = height_t/2;
+
+
+    cairo_set_line_width(w->crb,1);
+    roundrec(w->crb, 0, 0, width_t, height_t, height_t * 0.2);
+    boxShadowInset(w->crb,0, 0, width_t, height_t, true);
+    cairo_stroke(w->crb);
+    cairo_move_to(w->crb,2,half_height_t);
+    use_fg_color_scheme(w, NORMAL_);
+    cairo_line_to(w->crb, width_t, half_height_t);
+    cairo_stroke(w->crb);
+
+    if (wave_view->size<1) return;
+    float step = (float)(width_t-10)/(float)wave_view->size+1;
+    float lstep = (float)(half_height_t-10.0);
+    cairo_set_line_width(w->cr,1);
+    use_fg_color_scheme(w, NORMAL_);
+    int i = 0;
+    for (;i<wave_view->size;i++) {
+        cairo_line_to(w->crb, (float)(i+0.5)*step,(float)(half_height_t)+ -wave_view->wave[i]*lstep);
+    }
+    cairo_line_to(w->crb, width_t, half_height_t);
+    cairo_line_to(w->crb, 2, half_height_t);
+    cairo_close_path(w->crb);
+    wavePattern(w->crb, 0, 0, half_height_t);
+    cairo_fill_preserve(w->crb);
+    use_fg_color_scheme(w, NORMAL_);
+    cairo_stroke(w->crb);
+}
+
+Widget_t* add_lv2_waveview(Widget_t *w, Widget_t *p, const char * label,
+                                X11_UI* ui, int x, int y, int width, int height) {
+    w = add_waveview(p, label, x, y, width, height);
+    w->parent_struct = ui;
+    w->func.expose_callback = draw_waveview;
+    return w;
+}
+
 // init the xwindow and return the LV2UI handle
 static LV2UI_Handle instantiate(const LV2UI_Descriptor * descriptor,
             const char * plugin_uri, const char * bundle_path,

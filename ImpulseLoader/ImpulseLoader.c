@@ -6,20 +6,27 @@
 
 #define TAB_ELEMENTS 0
 
+#define OSCSIZE 256
+
+#define RMSSIZE 16
+
 
 #define PLUGIN_UI_URI "urn:brummer:ImpulseLoader_ui"
 
+#include <sndfile.h>
 
 #include "lv2_plugin.h"
 
 #ifdef USE_ATOM
 
 #define XLV2__IRFILE "urn:brummer:ImpulseLoader#irfile"
+#define XLV2__GUI "urn:brummer:ImpulseLoader#gui"
 #define OBJ_BUF_SIZE 1024
 
 
 typedef struct {
     LV2_URID xlv2_irfile;
+    LV2_URID xlv2_gui;
     LV2_URID atom_Object;
     LV2_URID atom_Int;
     LV2_URID atom_Float;
@@ -40,13 +47,17 @@ typedef struct {
     LV2_Atom_Forge forge;
     X11LV2URIs   uris;
     FilePicker *filepicker;
+    Widget_t *wview;
     char *filename;
     char *fname;
     char *dir_name;
+    float *osc;
+    int ir_data_size;
 } X11_UI_Private_t;
 
 static inline void map_x11ui_uris(LV2_URID_Map* map, X11LV2URIs* uris) {
     uris->xlv2_irfile = map->map(map->handle, XLV2__IRFILE);
+    uris->xlv2_gui = map->map(map->handle, XLV2__GUI);
     uris->atom_Object = map->map(map->handle, LV2_ATOM__Object);
     uris->atom_Int = map->map(map->handle, LV2_ATOM__Int);
     uris->atom_Float = map->map(map->handle, LV2_ATOM__Float);
@@ -248,6 +259,39 @@ void first_loop(X11_UI *ui) {
     notify_dsp(ui);
 }
 
+static float *load_ir_data(X11_UI *ui) {
+    X11_UI_Private_t *ps = (X11_UI_Private_t*)ui->private_ptr;
+    // struct to hold sound file info
+    SF_INFO info;
+    info.format = 0;
+    ps->ir_data_size = 0;
+
+    // Open the wave file for reading
+    SNDFILE *sndfile = sf_open(ps->filename, SFM_READ, &info);
+
+    if (!sndfile) {
+        fprintf(stderr, "Error: could not open file\n");;
+        return NULL;
+    }
+    // allocate buffer to read all samples in
+    float *samples = (float*) malloc(info.frames * info.channels * sizeof(float));
+    // read soundfile into buffer
+    sf_read_float(sndfile, &samples[0], info.frames * info.channels);
+    sf_close(sndfile);
+    ps->ir_data_size = info.frames;
+    // get mono samples from first channel when needed
+    if (info.channels > 1) {
+        int i = 0;
+        float *msamples =  (float*) malloc(info.frames * sizeof(float));
+        for (;i<info.frames;i++) {
+            msamples[i] = samples[i *info.channels];
+        }
+        free(samples);
+        return msamples;
+    }
+    return samples;
+}
+
 static void file_menu_callback(void *w_, void* user_data) {
     Widget_t *w = (Widget_t*)w_;
     Widget_t *p = (Widget_t*)w->parent;
@@ -303,6 +347,9 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
     ps->filename = strdup("None");
     ps->dir_name = NULL;
     ps->fname = NULL;
+    ps->osc = (float*) malloc(OSCSIZE* sizeof(float));
+    memset(ps->osc,0,OSCSIZE* sizeof(float));
+    ps->ir_data_size = 0;
     ps->filepicker = (FilePicker*)malloc(sizeof(FilePicker));
     fp_init(ps->filepicker, "/");
 #ifdef __linux__
@@ -323,6 +370,8 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
     ui->widget[0]->parent_struct = (void*)&uris->xlv2_irfile;
     ui->widget[0]->func.user_callback = controller_callback;
 #endif
+    ps->wview = add_lv2_waveview (ps->wview, ui->win, "", ui, 180,  80, 135, 60);
+    set_widget_color(ps->wview, 0, 0, 0.3, 0.55, 0.91, 1.0);
 
     ui->widget[1] = add_lv2_knob (ui->widget[1], ui->win, 3, "Input", ui, 55,  80, 120, 140);
     set_adjustment(ui->widget[1]->adj, 0.0, 0.0, -20.0, 20.0, 0.2, CL_CONTINUOS);
@@ -348,6 +397,7 @@ void plugin_cleanup(X11_UI *ui) {
 #ifdef USE_ATOM
     X11_UI_Private_t *ps = (X11_UI_Private_t*)ui->private_ptr;
     fp_free(ps->filepicker);
+    free(ps->osc);
     free(ps->fname);
     free(ps->filename);
     free(ps->dir_name);
@@ -418,6 +468,10 @@ void plugin_port_event(LV2UI_Handle handle, uint32_t port_index,
                                 rebuild_file_menu(ui);
                             }
                             free(dn);
+                            float *irdata = load_ir_data(ui);
+                            if (ps->ir_data_size)
+                                update_waveview(ps->wview,irdata, ps->ir_data_size);
+                            free(irdata);
                             expose_widget(ui->win);
                         }
                     }

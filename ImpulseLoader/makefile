@@ -56,7 +56,7 @@ ifeq ($(TARGET), Linux)
 
 	GUI_LDFLAGS +=  -I$(HEADER_DIR) -Wl,-z,noexecstack -Wl,--no-undefined -fvisibility=hidden \
 	-L. $(LIB_DIR)libxputty.a -shared `pkg-config --cflags --libs cairo x11` -lm  -Wl,-z,nodelete \
-	-pthread -lpthread
+	-pthread -lpthread `$(PKGCONFIG) --cflags --libs sndfile`
 else ifeq ($(TARGET), Windows)
 	CXXFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall -funroll-loops \
 	 -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
@@ -71,7 +71,8 @@ else ifeq ($(TARGET), Windows)
 
 	GUI_LDFLAGS += -I$(HEADER_DIR) -static-libgcc -static-libstdc++ \
 	`$(PKGCONFIG) $(PKGCONFIG_FLAGS) --cflags --libs cairo ` -pthread -lpthread \
-	-L. $(LIB_DIR)libxputty.$(STATIC_LIB_EXT) -shared  -lm $(PAWPAW_LFLAGS)
+	-L. $(LIB_DIR)libxputty.$(STATIC_LIB_EXT) -shared  -lm $(PAWPAW_LFLAGS) \
+	`$(PKGCONFIG) --cflags --libs sndfile`
 
 	TTLUPDATE = sed -i '/lv2:binary/ s/\.so/\.dll/ ' ../bin/$(BUNDLE)/manifest.ttl
 	TTLUPDATEGUI = sed -i '/a guiext:X11UI/ s/X11UI/WindowsUI/ ; /guiext:binary/ s/\.so/\.dll/ ' ../bin/$(BUNDLE)/$(NAME).ttl

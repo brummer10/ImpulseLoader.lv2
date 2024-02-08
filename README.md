@@ -4,6 +4,8 @@ This is a simple, mono, IR-File loader/convolution LV2 plug.
 
 ![ImpulseLoader](https://raw.githubusercontent.com/brummer10/ImpulseLoader.lv2/master/ImpulseLoader.png)
 
+A Stereo version of ImpulseLoader is here [ImpulseLoaderStereo](https://github.com/brummer10/ImpulseLoaderStereo.lv2)
+
 ## Supported File Formats:
 
 - WAF

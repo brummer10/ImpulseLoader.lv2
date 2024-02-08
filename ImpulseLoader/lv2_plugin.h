@@ -85,6 +85,9 @@ const char* plugin_set_name();
 // create all needed controller 
 void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri);
 
+Widget_t* add_lv2_waveview(Widget_t *w, Widget_t *p, const char * label,
+                                X11_UI* ui, int x, int y, int width, int height);
+
 Widget_t* add_lv2_button(Widget_t *w, Widget_t *p, const char * label,
                                 X11_UI* ui, int x, int y, int width, int height);
 
