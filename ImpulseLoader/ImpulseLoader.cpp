@@ -343,8 +343,7 @@ void XImpulseLoader::run_dsp_(uint32_t n_samples)
         }
     }
 
-    if (!_execute.load(std::memory_order_acquire) && 
-            ((cur_bufsize != bufsize) || _restore.load(std::memory_order_acquire))) {
+    if (!_execute.load(std::memory_order_acquire) && _restore.load(std::memory_order_acquire)) {
         needs_ramp_down = true;
         bufsize = cur_bufsize;
         _execute.store(true, std::memory_order_release);

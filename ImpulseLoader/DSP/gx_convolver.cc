@@ -501,20 +501,58 @@ bool GxConvolver::compute(int count, float* input, float *output) {
         if (input != output) {
             memcpy(output, input, count * sizeof(float));
         }
-	if (state() == Convproc::ST_WAIT) {
-	    check_stop();
-	}
+        if (state() == Convproc::ST_WAIT) {
+            check_stop();
+        }
         if (state() == ST_STOP) {
             ready = false;
         }
         return true;
     }
-    memcpy(inpdata(0), input, count * sizeof(float));
-
-    int flags = process(sync);
-
-    memcpy(output, outdata(0), count * sizeof(float));
+    int32_t flags = 0;
+    if (static_cast<uint32_t>(count) == buffersize) {
+        memcpy(inpdata(0), input, count * sizeof(float));
+        flags = process(sync);
+        memcpy(output, outdata(0), count * sizeof(float));
+    } else if (static_cast<uint32_t>(count) < buffersize) {
+        float in[buffersize];
+        memset(in, 0, buffersize * sizeof(float));
+        memcpy(in, input, count * sizeof(float));
+        memcpy(inpdata(0), in, buffersize * sizeof(float));
+        flags = process(sync);
+        memcpy(output, outdata(0), count * sizeof(float));
+    } else {
+        float *in, *out;
+        in = inpdata(0);
+        out = outdata(0);
+        uint32_t b = 0;
+        uint32_t d = 0;
+        uint32_t s = 0;
+        for(int32_t i = 0; i<count; i++) {
+            in[b] = input[i];
+            if(++b == buffersize) {
+                b=0;
+                flags = process();
+                for(d = 0; d<buffersize; d++, s++) {
+                    output[s] = out[d];
+                }
+            }
+        }
+        if (s < static_cast<uint32_t>(count)) {
+            int32_t r = static_cast<uint32_t>(count) - s;
+            float in[buffersize];
+            memset(in, 0, buffersize * sizeof(float));
+            memcpy(in, &input[s], r * sizeof(float));
+            memcpy(inpdata(0), in, buffersize * sizeof(float));
+            flags = process(sync);
+            for(int32_t i = 0; i<r; i++, s++) {
+                output[s] = out[i];
+            }
+            //printf("convolver missing %u samples", r);
+        }
+    }
     return flags == 0;
+
 }
 
 

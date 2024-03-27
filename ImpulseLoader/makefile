@@ -44,12 +44,19 @@
 ifeq ($(TARGET), Linux)
 	CXXFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall -funroll-loops \
 	 -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
-	-fstack-protector -ffast-math -fomit-frame-pointer -fstrength-reduce \
-	-fdata-sections -Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL $(SSE_CFLAGS)
+	-fstack-protector -ffast-math -fomit-frame-pointer -fdata-sections \
+	-Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL $(SSE_CFLAGS) \
+	-Wno-unused-private-field
+	ifeq (,$(findstring clang, $(CXX)))
+	CXXFLAGS += -fstrength-reduce
+	endif
 
 	CFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall \
-	-fstack-protector -ffast-math -fomit-frame-pointer -fstrength-reduce \
-	-fdata-sections -Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL $(SSE_CFLAGS)
+	-fstack-protector -ffast-math -fomit-frame-pointer -fdata-sections \
+	-Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL $(SSE_CFLAGS)
+	ifeq (,$(findstring clang, $(CC)))
+	CFLAGS += -fstrength-reduce
+	endif
 
 	LDFLAGS += -I. -I$(SCALA_DIR) -lm -pthread -lpthread -shared -lm -Wl,-z,noexecstack -Wl,--no-undefined \
 	-fvisibility=hidden `$(PKGCONFIG) --cflags --libs sndfile` -lfftw3 -lfftw3f
