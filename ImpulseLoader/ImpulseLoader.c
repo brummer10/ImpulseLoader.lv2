@@ -474,6 +474,11 @@ void plugin_port_event(LV2UI_Handle handle, uint32_t port_index,
                             free(irdata);
                             expose_widget(ui->win);
                         }
+                    } else {
+                        free(ps->filename);
+                        ps->filename = NULL;
+                        ps->filename = "None";
+                        expose_widget(ui->win);
                     }
                 } else {
                     const LV2_Atom* value = NULL;
