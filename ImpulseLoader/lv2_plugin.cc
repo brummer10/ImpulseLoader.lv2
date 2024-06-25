@@ -120,6 +120,12 @@ static void draw_window(void *w_, void* user_data) {
     cairo_paint (w->crb);
     round_rectangle(w->crb, 10 * w->app->hdpi, 10 * w->app->hdpi,
         w->width-20 * w->app->hdpi, w->height-20 * w->app->hdpi, 0.08);
+
+    cairo_pattern_t *pat = cairo_pattern_create_for_surface(w->image);
+    cairo_pattern_set_extend (pat, CAIRO_EXTEND_REPEAT);
+    cairo_set_source(w->crb, pat);
+    cairo_fill_preserve (w->crb);
+
     boxShadowOutset(w->crb,10 * w->app->hdpi,10 * w->app->hdpi,
         w->width-20 * w->app->hdpi,w->height-20 * w->app->hdpi, true);
     cairo_stroke (w->crb);
@@ -133,10 +139,6 @@ static void draw_window(void *w_, void* user_data) {
 #endif
 
     widget_set_scale(w);
-    cairo_move_to (w->crb, 50 * w->app->hdpi, w->scale.init_height-65 * w->app->hdpi );
-    cairo_line_to (w->crb, 450 * w->app->hdpi, w->scale.init_height-65 * w->app->hdpi );
-    use_text_color_scheme(w, NORMAL_);
-    cairo_stroke (w->crb);
     cairo_set_source_rgba(w->crb, 0.1, 0.1, 0.1, 1);
     round_rectangle(w->crb, 90 * w->app->hdpi, w->scale.init_height-55 * w->app->hdpi,
                                             350 * w->app->hdpi, 30 * w->app->hdpi, 0.5);
@@ -144,10 +146,6 @@ static void draw_window(void *w_, void* user_data) {
     boxShadowInset(w->crb, 90 * w->app->hdpi,w->scale.init_height-55 * w->app->hdpi,
                                             350 * w->app->hdpi, 30 * w->app->hdpi, true);
     cairo_fill (w->crb);
-    if (w->image) {
-        cairo_set_source_surface (w->crb, w->image, 0, 0);
-        cairo_paint (w->crb);
-    }
     use_text_color_scheme(w, get_color_state(w));
 #ifdef USE_ATOM
     X11_UI* ui = (X11_UI*)w->parent_struct;
@@ -178,12 +176,24 @@ static void draw_window(void *w_, void* user_data) {
 #endif
 #ifndef HIDE_NAME
     cairo_set_font_size (w->crb, w->app->big_font+8);
-    cairo_move_to (w->crb, (w->scale.init_width*0.5)-tw, w->scale.init_y+50 * w->app->hdpi);
-    cairo_show_text(w->crb, w->label);
-    cairo_move_to (w->crb, 50 * w->app->hdpi, w->scale.init_y+55 * w->app->hdpi);
-    cairo_line_to (w->crb, 450 * w->app->hdpi, w->scale.init_y+55 * w->app->hdpi);
-    use_text_color_scheme(w, NORMAL_);
+    cairo_set_font_size (w->crb, w->app->big_font+8);
+
+    cairo_move_to (w->crb, (w->scale.init_width*0.5)-tw-1, (w->scale.init_y+42 * w->app->hdpi)-1);
+    cairo_text_path(w->crb, w->label);
+    cairo_set_line_width(w->crb, 1);
+    cairo_set_source_rgba(w->crb, 0.1, 0.1, 0.1, 1);
     cairo_stroke (w->crb);
+
+    cairo_move_to (w->crb, (w->scale.init_width*0.5)-tw+1, (w->scale.init_y+42 * w->app->hdpi)+1);
+    cairo_text_path(w->crb, w->label);
+    cairo_set_line_width(w->crb, 1);
+    cairo_set_source_rgba(w->crb, 0.33, 0.33, 0.33, 1);
+    cairo_stroke (w->crb);
+
+    cairo_set_source_rgba(w->crb, 0.2, 0.2, 0.2, 1);
+    cairo_move_to (w->crb, (w->scale.init_width*0.5)-tw, w->scale.init_y+42 * w->app->hdpi);
+    cairo_show_text(w->crb, w->label);
+
 #endif
     widget_reset_scale(w);
     cairo_new_path (w->crb);
@@ -733,6 +743,7 @@ static LV2UI_Handle instantiate(const LV2UI_Descriptor * descriptor,
     ui->win = create_window(&ui->main, (Window)ui->parentXwindow, 0, 0, w, h);
     ui->win->parent_struct = ui;
     ui->win->label = plugin_set_name();
+    widget_get_png(ui->win, LDVAR(texture_png));
     // connect the expose func
     ui->win->func.expose_callback = draw_window;
     // create controller widgets
