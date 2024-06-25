@@ -176,7 +176,6 @@ static void draw_window(void *w_, void* user_data) {
 #endif
 #ifndef HIDE_NAME
     cairo_set_font_size (w->crb, w->app->big_font+8);
-    cairo_set_font_size (w->crb, w->app->big_font+8);
 
     cairo_move_to (w->crb, (w->scale.init_width*0.5)-tw-1, (w->scale.init_y+42 * w->app->hdpi)-1);
     cairo_text_path(w->crb, w->label);
@@ -637,7 +636,9 @@ void draw_waveview(void *w_, void* user_data) {
 
 
     cairo_set_line_width(w->crb,1);
+    cairo_set_source_rgba(w->crb, 0.1, 0.1, 0.1, 1);
     roundrec(w->crb, 0, 0, width_t, height_t, height_t * 0.2);
+    cairo_fill_preserve(w->crb);
     boxShadowInset(w->crb,0, 0, width_t, height_t, true);
     cairo_stroke(w->crb);
     cairo_move_to(w->crb,2,half_height_t);
