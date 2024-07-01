@@ -31,7 +31,7 @@
 
 <urn:brummer:ImpulseLoader>
    a lv2:Plugin ,
-       lv2:MixerPlugin ;
+       lv2:ReverbPlugin ;
    doap:maintainer <urn:name#me> ;
    doap:name "ImpulseLoader" ;
    lv2:project <urn:brummer:ImpulseLoader> ;
