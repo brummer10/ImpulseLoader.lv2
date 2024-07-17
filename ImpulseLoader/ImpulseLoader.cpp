@@ -1,9 +1,12 @@
 
 #include <atomic>
+#include <mutex>
+#include <condition_variable>
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
 #include <cstring>
+#include <thread>
 #include <unistd.h>
 
 
