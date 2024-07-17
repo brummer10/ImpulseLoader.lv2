@@ -38,6 +38,7 @@ endif
 
 clean:
 	@rm -f ./libxputty/xputty/resources/texture.png
+	@rm -f ./libxputty/xputty/resources/dir.png
 
 mod:
 	@exec $(MAKE) --no-print-directory -j 1 -C Fluida $(MAKECMDGOALS)

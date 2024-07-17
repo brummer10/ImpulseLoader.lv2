@@ -24,8 +24,13 @@
 #define SRC_HEADERS_GX_CONVOLVER_H_
 
 #include "zita-convolver.h"
+#include "TwoStageFFTConvolver.h"
 #include <stdint.h>
 #include <unistd.h>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 #include "gx_resampler.h"
 
 #include <sndfile.hh>
@@ -90,10 +95,26 @@ private:
     unsigned int _size;
 };
 
-bool read_audio(const std::string& filename, unsigned int *audio_size, int *audio_chan,
-		int *audio_type, int *audio_form, int *audio_rate, float **buffer);
+class ConvolverBase
+{
+public:
+    virtual bool start(int32_t policy, int32_t priority) { return false;};
+    virtual bool configure(std::string fname, float gain, unsigned int delay, unsigned int offset,
+                    unsigned int length, unsigned int size, unsigned int bufsize) { return false;};
 
-class GxConvolverBase: protected Convproc
+    virtual bool compute(int32_t count, float* input, float *output) { return false;};
+    virtual bool checkstate() { return false;};
+    virtual inline void set_not_runnable() {};
+    virtual inline bool is_runnable() { return false;};
+    virtual inline void set_buffersize(uint32_t sz) {};
+    virtual inline void set_samplerate(uint32_t sr) {};
+    virtual int stop_process() { return 0;};
+    virtual int cleanup() { return 0;};
+    ConvolverBase () {}
+    virtual ~ConvolverBase () {}
+};
+
+class GxConvolverBase: public ConvolverBase, protected Convproc
 {
 protected:
   volatile bool ready;
@@ -133,8 +154,8 @@ public:
     return ready;
   }
   bool start(int32_t policy, int32_t priority);
-  using Convproc::stop_process;
-  using Convproc::cleanup;
+  int stop_process() { return Convproc::stop_process();}
+  int cleanup() { return Convproc::cleanup();}
   inline void set_sync(bool val)
   {
     sync = val;
@@ -146,51 +167,143 @@ class GxConvolver: public GxConvolverBase {
 private:
     gx_resample::StreamingResampler resamp;
     bool read_sndfile(Audiofile& audio, int nchan, int samplerate, const float *gain,
-		      unsigned int *delay, unsigned int offset, unsigned int length);
+                    unsigned int *delay, unsigned int offset, unsigned int length);
 public:
-    GxConvolver(gx_resample::StreamingResampler resamp)
+    GxConvolver()
       : GxConvolverBase(), resamp() {}
-    bool configure(
-        std::string fname, float gain, float lgain,
-        unsigned int delay, unsigned int ldelay, unsigned int offset,
-        unsigned int length, unsigned int size, unsigned int bufsize);
-    bool compute(int count, float* input1, float *input2, float *output1, float *output2);
     bool configure(std::string fname, float gain, unsigned int delay, unsigned int offset,
-		   unsigned int length, unsigned int size, unsigned int bufsize);
+                    unsigned int length, unsigned int size, unsigned int bufsize);
     bool compute(int count, float* input, float *output);
 };
 
-class GxSimpleConvolver: public GxConvolverBase
-{
+
+class DoubleThreadConvolver;
+
+class ConvolverWorker {
 private:
-  gx_resample::BufferResampler& resamp;
+    std::atomic<bool> _execute;
+    std::thread _thd;
+    std::mutex m;
+    void set_priority();
+    void run();
+    DoubleThreadConvolver &_xr;
+
 public:
-  int32_t pre_count;
-  uint32_t pre_sr;
-  float *pre_data;
-  float *pre_data_new;
-  GxSimpleConvolver(gx_resample::BufferResampler& resamp_)
-    : GxConvolverBase(), resamp(resamp_), pre_count(0), pre_sr(0),
-    pre_data(NULL), pre_data_new(NULL) {}
-  bool configure(int32_t count, float *impresp, uint32_t imprate);
-  bool update(int32_t count, float *impresp, uint32_t imprate);
-  bool compute(int32_t count, float* input, float *output);
-  bool compute(int32_t count, float* buffer)
-  {
-    return is_runnable() ? compute(count, buffer, buffer) : true;
-  }
-  
-  bool configure_stereo(int32_t count, float *impresp, uint32_t imprate);
-  bool update_stereo(int32_t count, float *impresp, uint32_t imprate);
-  bool compute_stereo(int32_t count, float* input, float* input1, float *output, float *output1);
-  bool compute_stereo(int32_t count, float* buffer, float* buffer1)
-  {
-    return is_runnable() ? compute_stereo(count, buffer, buffer1, buffer, buffer1) : true;
-  }
-  static void run_static(uint32_t n_samples, GxSimpleConvolver *p, float *output);
-  static void run_static(uint32_t n_samples, GxSimpleConvolver *p, float *input, float *output);
-  static void run_static_stereo(uint32_t n_samples, GxSimpleConvolver *p, float *output, float *output1);
+    ConvolverWorker(DoubleThreadConvolver &xr);
+    ~ConvolverWorker();
+    void stop();
+    void start();
+    bool is_running() const noexcept;
+    std::condition_variable cv;
 };
 
+class DoubleThreadConvolver: public ConvolverBase, public fftconvolver::TwoStageFFTConvolver
+{
+public:
+    std::mutex mo;
+    std::condition_variable co;
+    bool start(int32_t policy, int32_t priority) { 
+        work.start(); 
+        return ready;}
+
+    bool configure(std::string fname, float gain, unsigned int delay, unsigned int offset,
+                    unsigned int length, unsigned int size, unsigned int bufsize);
+
+    bool compute(int32_t count, float* input, float *output);
+
+    bool checkstate() { return true;}
+
+    inline void set_not_runnable() { ready = false;}
+
+    inline bool is_runnable() { return ready;}
+
+    inline void set_buffersize(uint32_t sz) { buffersize = sz;}
+
+    inline void set_samplerate(uint32_t sr) { samplerate = sr;}
+
+    int stop_process() {
+            reset();
+            ready = false;
+            return 0;}
+
+    int cleanup () {
+            reset();
+            return 0;}
+
+    DoubleThreadConvolver()
+        : resamp(), ready(false), samplerate(0), work(*this) {
+            timeoutPeriod = std::chrono::microseconds(2000);
+            setWait.store(false, std::memory_order_release);}
+
+    ~DoubleThreadConvolver() { reset(); work.stop();}
+
+protected:
+    virtual void startBackgroundProcessing();
+    virtual void waitForBackgroundProcessing();
+
+private:
+    friend class ConvolverWorker;
+    gx_resample::BufferResampler resamp;
+    volatile bool ready;
+    uint32_t buffersize;
+    uint32_t samplerate;
+    ConvolverWorker work;
+    std::atomic<bool> setWait;
+    std::chrono::time_point<std::chrono::steady_clock> timePoint;
+    std::chrono::microseconds timeoutPeriod;
+    bool get_buffer(std::string fname, float **buffer, uint32_t* rate, int* size);
+};
+
+
+class SelectConvolver
+{
+public:
+    void set_convolver(bool IsPowerOfTwo_) {
+            IsPowerOfTwo = IsPowerOfTwo_;
+            delete conv;
+            conv = IsPowerOfTwo ?
+            dynamic_cast<ConvolverBase*>(new GxConvolver()) : 
+            dynamic_cast<ConvolverBase*>(new DoubleThreadConvolver());
+            }
+
+    bool start(int32_t policy, int32_t priority) {
+            return conv->start(policy,priority);}
+
+    bool configure(std::string fname, float gain, unsigned int delay, unsigned int offset,
+                            unsigned int length, unsigned int size, unsigned int bufsize) { 
+            return conv->configure(fname, gain, delay, offset, length, size, bufsize);}
+
+    bool compute(int32_t count, float* input, float *output) {
+            return conv->compute(count, input, output);}
+
+    bool checkstate() {
+            return conv->checkstate();}
+
+    inline void set_not_runnable() {
+            return conv->set_not_runnable();}
+
+    inline bool is_runnable() {
+            return conv->is_runnable();}
+
+    inline void set_buffersize(uint32_t sz) {
+            return conv->set_buffersize(sz);}
+
+    inline void set_samplerate(uint32_t sr) {
+            return conv->set_samplerate(sr);}
+
+    int stop_process() {
+            return conv->stop_process();}
+
+    int cleanup() {
+            return conv->cleanup();}
+
+    SelectConvolver()
+        : IsPowerOfTwo(false) { conv = new ConvolverBase();}
+
+    ~SelectConvolver() { delete conv;}
+private:
+    bool IsPowerOfTwo;
+    ConvolverBase *conv;
+};
 
 #endif  // SRC_HEADERS_GX_CONVOLVER_H_

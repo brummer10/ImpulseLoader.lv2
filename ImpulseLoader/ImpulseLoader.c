@@ -365,7 +365,7 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
 #endif
     ui->win->func.dnd_notify_callback = dnd_load_response;
 
-    ui->widget[0] = add_lv2_file_button (ui->widget[0], ui->win, -4, "IR File", ui, 30,  254, 50, 30);
+    ui->widget[0] = add_lv2_file_button (ui->widget[0], ui->win, -4, "IR File", ui, 45,  258, 25, 25);
 #ifdef USE_ATOM
     ui->widget[0]->parent_struct = (void*)&uris->xlv2_irfile;
     ui->widget[0]->func.user_callback = controller_callback;
@@ -387,8 +387,8 @@ void plugin_create_controller_widgets(X11_UI *ui, const char * plugin_uri) {
     set_widget_color(ui->widget[3], 0, 0, 0.3, 0.55, 0.91, 1.0);
     set_widget_color(ui->widget[3], 0, 3,  0.682, 0.686, 0.686, 1.0);
 
-    ui->file_button = add_lv2_button(ui->file_button, ui->win, "", ui, 450,  254, 22, 30);
-    combobox_set_pop_position(ui->file_button, 1);
+    ui->file_button = add_lv2_button(ui->file_button, ui->win, "", ui, 435,  254, 22, 30);
+    combobox_set_pop_position(ui->file_button, 0);
     combobox_add_entry(ui->file_button, "None");
     ui->file_button->func.value_changed_callback = file_menu_callback;
 }

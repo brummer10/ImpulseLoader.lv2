@@ -11,11 +11,11 @@
 	# check CPU and supported optimization flagsi
 	ifneq ("$(wildcard /proc/cpuinfo)","")
 	ifneq ($(shell cat /proc/cpuinfo | grep sse3 ) , )
-		SSE_CFLAGS = -msse3 -mfpmath=sse -mfxsr
+		SSE_CFLAGS = -msse3 -mfpmath=sse -mfxsr -DFFTCONVOLVER_USE_SSE=1
 	else ifneq ($(shell cat /proc/cpuinfo | grep sse2 ) , )
-		SSE_CFLAGS = -msse2 -mfpmath=sse -mfxsr
+		SSE_CFLAGS = -msse2 -mfpmath=sse -mfxsr -DFFTCONVOLVER_USE_SSE=1
 	else ifneq ($(shell cat /proc/cpuinfo | grep sse ) , )
-		SSE_CFLAGS = -msse -mfpmath=sse -mfxsr
+		SSE_CFLAGS = -msse -mfpmath=sse -mfxsr -DFFTCONVOLVER_USE_SSE=1
 		else ifneq ($(shell cat /proc/cpuinfo | grep ARM ) , )
 		ifneq ($(shell cat /proc/cpuinfo | grep ARMv7 ) , )
 			ifneq ($(shell cat /proc/cpuinfo | grep vfpd32 ) , )
@@ -40,10 +40,15 @@
 	HEADER_DIR := $(LIB_DIR)include/
 	SCALA_DIR := ./libscala-file/
 
+	CONV_DIR := ../FFTConvolver/
+	CONV_SOURCES :=  $(wildcard $(CONV_DIR)*.cpp)
+	CONV_OBJ := $(patsubst %.cpp,%.o,$(CONV_SOURCES))
+	CONV_LIB := fftconvolver.$(STATIC_LIB_EXT)
+
 	# set compile flags
 ifeq ($(TARGET), Linux)
 	CXXFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall -funroll-loops \
-	 -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
+	 -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 -I$(CONV_DIR) \
 	-fstack-protector -ffast-math -fomit-frame-pointer -fdata-sections \
 	-Wl,--gc-sections -Wl,-z,relro,-z,now -Wl,--exclude-libs,ALL $(SSE_CFLAGS) \
 	-Wno-unused-private-field
@@ -58,7 +63,7 @@ ifeq ($(TARGET), Linux)
 	CFLAGS += -fstrength-reduce
 	endif
 
-	LDFLAGS += -I. -I$(SCALA_DIR) -lm -pthread -lpthread -shared -lm -Wl,-z,noexecstack -Wl,--no-undefined \
+	LDFLAGS += -lm -pthread -lpthread -shared -lm -Wl,-z,noexecstack -Wl,--no-undefined \
 	-fvisibility=hidden `$(PKGCONFIG) --cflags --libs sndfile` -lfftw3 -lfftw3f
 
 	GUI_LDFLAGS +=  -I$(HEADER_DIR) -Wl,-z,noexecstack -Wl,--no-undefined -fvisibility=hidden \
@@ -66,14 +71,14 @@ ifeq ($(TARGET), Linux)
 	-pthread -lpthread `$(PKGCONFIG) --cflags --libs sndfile`
 else ifeq ($(TARGET), Windows)
 	CXXFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall -funroll-loops \
-	 -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 \
+	 -I. -I./DSP -I./DSP/zita-convolver -I./DSP/zita-resampler-1.1.0 -I$(CONV_DIR) \
 	-fstack-protector -ffast-math -fomit-frame-pointer -fstrength-reduce \
 	-fdata-sections -Wl,--gc-sections -Wl,--exclude-libs,ALL $(SSE_CFLAGS)
 
 	CFLAGS += -D_FORTIFY_SOURCE=2 -fPIC -DPIC -O2 -Wall \
 	-fdata-sections -Wl,--gc-sections -Wl,--exclude-libs,ALL 
 
-	LDFLAGS += -I. -I$(SCALA_DIR) `$(PKGCONFIG) $(PKGCONFIG_FLAGS)  --cflags --libs sndfile` \
+	LDFLAGS += `$(PKGCONFIG) $(PKGCONFIG_FLAGS)  --cflags --libs sndfile` \
 	-shared -lm  -lfftw3 -lfftw3f $(PAWPAW_LFLAGS)
 
 	GUI_LDFLAGS += -I$(HEADER_DIR) -static-libgcc -static-libstdc++ \
@@ -126,6 +131,7 @@ endif
 
 clean :
 	$(QUIET)rm -f *.a *.o *.so *.dll 
+	$(QUIET)rm -f $(CONV_DIR)*.a $(CONV_DIR)*.lib $(CONV_DIR)*.o $(CONV_DIR)*.d
 	$(QUIET)rm -f $(NAME).$(LIB_EXT)
 	$(QUIET)rm -rf ../bin
 ifndef EXTRAQUIET
@@ -134,6 +140,7 @@ endif
 
 dist-clean :
 	$(QUIET)rm -f *.a *.o *.so *.dll
+	$(QUIET)rm -f $(CONV_DIR)*.a $(CONV_DIR)*.lib $(CONV_DIR)*.o $(CONV_DIR)*.d
 	$(QUIET)rm -f $(NAME).$(LIB_EXT)
 	$(QUIET)rm -rf ../bin
 ifndef EXTRAQUIET
@@ -162,9 +169,21 @@ ifeq ($(TARGET), Linux)
 else
 	$(QUIET)$(R_ECHO) "Uninstall is not implemented for windows, please remove the folder $(NAME).lv2 from Program Files/Common Files/LV2$(reset)"
 endif
-$(NAME) :
+
+
+
+$(CONV_OBJ): $(CONV_SOURCES)
+	@$(ECHO) "Building object file $@ $(reset)"
+	$(QUIET)$(CXX) $(CXXFLAGS) -MMD -Wall -c $(patsubst %.o,%.cpp,$@) -o $@
+
+$(CONV_LIB): $(CONV_OBJ)
+	@$(B_ECHO) "Build static library $@ $(reset)"
+	$(QUIET)$(AR) rcs $(CONV_LIB) $(CONV_OBJ)
+	@$(B_ECHO) "=================== DONE =======================$(reset)"
+
+$(NAME) : $(CONV_LIB)
 	@$(B_ECHO) "Compiling $@.$(LIB_EXT) $(reset)"
-	$(QUIET)$(CXX) -DUSE_ATOM -std=c++11  $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) -o $(NAME).$(LIB_EXT)
+	$(QUIET)$(CXX) -DUSE_ATOM -std=c++17  $(CXXFLAGS) $(OBJECTS) -L. $(CONV_LIB) $(LDFLAGS) -o $(NAME).$(LIB_EXT)
 	@$(B_ECHO) "Compiling $@_ui.$(LIB_EXT) $(reset)"
 	$(QUIET)$(CC) -DUSE_ATOM $(CFLAGS) $(GUI_OBJECTS) $(GUI_LDFLAGS) -o $(NAME)_ui.$(LIB_EXT)
 	$(QUIET)$(STRIP) -s -x -X -R .comment -R .note.ABI-tag $(NAME).$(LIB_EXT)

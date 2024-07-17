@@ -140,11 +140,11 @@ static void draw_window(void *w_, void* user_data) {
 
     widget_set_scale(w);
     cairo_set_source_rgba(w->crb, 0.1, 0.1, 0.1, 1);
-    round_rectangle(w->crb, 90 * w->app->hdpi, w->scale.init_height-55 * w->app->hdpi,
-                                            350 * w->app->hdpi, 30 * w->app->hdpi, 0.5);
+    round_rectangle(w->crb, 30 * w->app->hdpi, w->scale.init_height-55 * w->app->hdpi,
+                                            440 * w->app->hdpi, 30 * w->app->hdpi, 0.5);
     cairo_fill_preserve (w->crb);
-    boxShadowInset(w->crb, 90 * w->app->hdpi,w->scale.init_height-55 * w->app->hdpi,
-                                            350 * w->app->hdpi, 30 * w->app->hdpi, true);
+    boxShadowInset(w->crb, 30 * w->app->hdpi,w->scale.init_height-55 * w->app->hdpi,
+                                            440 * w->app->hdpi, 30 * w->app->hdpi, true);
     cairo_fill (w->crb);
     use_text_color_scheme(w, get_color_state(w));
 #ifdef USE_ATOM
@@ -470,7 +470,7 @@ void draw_my_button(void *w_, void* user_data) {
     if (!w->state && (int)w->adj_y->value)
         w->state = 3;
 
-    roundrec(w->crb,2.0, 4.0, width, height, height*0.33);
+  /*  roundrec(w->crb,2.0, 4.0, width, height, height*0.33);
 
     if(w->state==0) {
         cairo_set_line_width(w->crb, 1.0);
@@ -495,7 +495,7 @@ void draw_my_button(void *w_, void* user_data) {
     } else if (w->state==3) {
         roundrec(w->crb,3.0, 4.0, width, height, height*0.33);
         cairo_stroke(w->crb);
-    }
+    }*/
 
     float offset = 0.0;
     if(w->state==0) {
@@ -526,7 +526,7 @@ void draw_my_button(void *w_, void* user_data) {
 
 Widget_t* add_lv2_button(Widget_t *w, Widget_t *p, const char * label,
                                 X11_UI* ui, int x, int y, int width, int height) {
-    w = add_combobox(p, label, x, y, width, height);
+    w = add_combobox(p, label, x - 350, y, width + 350, height);
     w->parent_struct = ui;
     w->func.expose_callback = dummy_expose;
     w->childlist->childs[0]->func.expose_callback = draw_my_button;
@@ -583,6 +583,46 @@ static void my_fbutton_mem_free(void *w_, void* user_data) {
     filebutton = NULL;
 }
 
+void draw_image_(Widget_t *w, int width_t, int height_t, float offset) {
+    int width, height;
+    os_get_surface_size(w->image, &width, &height);
+    //double half_width = (width/height >=2) ? width*0.5 : width;
+    double x = (double)width_t/(double)(width);
+    double y = (double)height_t/(double)height;
+    double x1 = (double)height/(double)height_t;
+    double y1 = (double)(width)/(double)width_t;
+    double off_set = offset*x1;
+    cairo_scale(w->crb, x,y);
+    cairo_set_source_surface (w->crb, w->image, off_set, off_set);
+    cairo_rectangle(w->crb,0, 0, height, height);
+    cairo_fill(w->crb);
+    cairo_scale(w->crb, x1,y1);
+}
+
+void draw_i_button(void *w_, void* user_data) {
+    Widget_t *w = (Widget_t*)w_;
+    if (!w) return;
+    Metrics_t metrics;
+    os_get_window_metrics(w, &metrics);
+    int width = metrics.width-5;
+    int height = metrics.height-5;
+    if (!metrics.visible) return;
+    if (w->image) {
+        float offset = 0.0;
+        if(w->state==1 && ! (int)w->adj_y->value) {
+            offset = 1.0;
+        } else if(w->state==1) {
+            offset = 2.0;
+        } else if(w->state==2) {
+            offset = 2.0;
+        } else if(w->state==3) {
+            offset = 1.0;
+        }
+        
+       draw_image_(w, width, height,offset);
+   }
+}
+
 Widget_t *add_my_file_button(Widget_t *parent, int x, int y, int width, int height,
                            const char *path, const char *filter) {
     FileButton *filebutton = (FileButton*)malloc(sizeof(FileButton));
@@ -591,16 +631,17 @@ Widget_t *add_my_file_button(Widget_t *parent, int x, int y, int width, int heig
     filebutton->last_path = NULL;
     filebutton->w = NULL;
     filebutton->is_active = false;
-    Widget_t *fbutton = add_toggle_button(parent, ". . .", x, y, width, height);
+    Widget_t *fbutton = add_image_toggle_button(parent, "", x, y, width, height);
     fbutton->private_struct = filebutton;
     fbutton->flags |= HAS_MEM;
     fbutton->scale.gravity = CENTER;
     fbutton->func.mem_free_callback = my_fbutton_mem_free;
     fbutton->func.value_changed_callback = my_fbutton_callback;
     fbutton->func.dialog_callback = my_fdialog_response;
+    widget_get_png(fbutton, LDVAR(dir_png));
+    fbutton->func.expose_callback = draw_i_button;
     return fbutton;
 }
-
 
 Widget_t* add_lv2_file_button(Widget_t *w, Widget_t *p, PortIndex index, const char * label,
                                 X11_UI* ui, int x, int y, int width, int height) {

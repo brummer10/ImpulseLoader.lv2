@@ -25,7 +25,7 @@
 
 <urn:brummer:ImpulseLoader#irfile>
     a lv2:Parameter;
-    mod:fileTypes "audio";
+    mod:fileTypes "wav,audio";
     rdfs:label "IR File";
     rdfs:range atom:Path.
 
