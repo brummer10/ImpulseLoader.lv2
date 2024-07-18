@@ -139,7 +139,7 @@ ifndef EXTRAQUIET
 endif
 
 dist-clean :
-	$(QUIET)rm -f *.a *.o *.so *.dll
+	$(QUIET)rm -f *.a *.o *.so *.dll *.lib
 	$(QUIET)rm -f $(CONV_DIR)*.a $(CONV_DIR)*.lib $(CONV_DIR)*.o $(CONV_DIR)*.d
 	$(QUIET)rm -f $(NAME).$(LIB_EXT)
 	$(QUIET)rm -rf ../bin

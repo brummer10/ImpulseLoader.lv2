@@ -279,7 +279,7 @@ void XImpulseLoader::do_work_mono()
         ir_file = "None";
         printf("preamp impulse convolver update fail\n");
     } else {
-        needs_ramp_up = true;
+        if (!bypassed) needs_ramp_up = true;
     }
     _execute.store(false, std::memory_order_release);
     _notify_ui.store(true, std::memory_order_release);
@@ -336,7 +336,7 @@ void XImpulseLoader::run_dsp_(uint32_t n_samples)
                 if (file_path) {
                     ir_file = (const char*)(file_path+1);
                     if (!_execute.load(std::memory_order_acquire)) {
-                        needs_ramp_down = true;
+                        if (!bypassed) needs_ramp_down = true;
                         bufsize = cur_bufsize;
                         _execute.store(true, std::memory_order_release);
                         schedule->schedule_work(schedule->handle,  sizeof(bool), &doit);
@@ -347,7 +347,7 @@ void XImpulseLoader::run_dsp_(uint32_t n_samples)
     }
 
     if (!_execute.load(std::memory_order_acquire) && _restore.load(std::memory_order_acquire)) {
-        needs_ramp_down = true;
+        if (!bypassed) needs_ramp_down = true;
         bufsize = cur_bufsize;
         _execute.store(true, std::memory_order_release);
         schedule->schedule_work(schedule->handle,  sizeof(bool), &doit);
