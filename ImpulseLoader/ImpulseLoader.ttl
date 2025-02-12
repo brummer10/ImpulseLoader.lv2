@@ -120,7 +120,17 @@ If there are more then 1 channel in the IR-File, only the first channel will be 
         lv2:index 6 ;
         lv2:symbol "NOTIFY" ;
         lv2:name "NOTIFY";
-    ] .
+    ], [
+      a lv2:InputPort ,
+          lv2:ControlPort ;
+      lv2:index 7 ;
+      lv2:portProperty lv2:toggled ;
+      lv2:symbol "Normalize" ;
+      lv2:name "Normalize" ;
+      lv2:default 0.0 ;
+      lv2:minimum 0.0 ;
+      lv2:maximum 1.0 ;
+   ] .
 
 
 <urn:brummer:ImpulseLoader_ui>

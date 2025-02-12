@@ -37,10 +37,8 @@ typedef int PortIndex;
 #include "resampler-table.cc"
 #include "zita-resampler/resampler.h"
 #include "gx_resampler.cc"
-#include "zita-convolver.cc"
-#include "zita-convolver.h"
-#include "gx_convolver.cc"
-#include "gx_convolver.h"
+#include "fftconvolver.cc"
+#include "fftconvolver.h"
 #include "gain.cc"
 #include "dry_wet.cc"
 
@@ -57,6 +55,8 @@ private:
     float* output0;
     float* bypass;
     float bypass_;
+    float* norm;
+    uint32_t norm_;
     std::string ir_file;
     uint32_t bufsize;
     uint32_t cur_bufsize;
@@ -75,7 +75,7 @@ private:
     std::atomic<bool>            _execute;
     std::atomic<bool>            _notify_ui;
     std::atomic<bool>            _restore;
-    SelectConvolver              conv;
+    ConvolverSelector            conv;
     gain::Dsp* plugin1;
     wet_dry::Dsp* plugin2;
 
@@ -163,12 +163,14 @@ XImpulseLoader::XImpulseLoader() :
     output0(NULL),
     bypass(NULL),
     bypass_(2),
+    norm(NULL),
+    norm_(0),
     bufsize(0),
     cur_bufsize(0),
     needs_ramp_down(false),
     needs_ramp_up(false),
     bypassed(false),
-    conv(SelectConvolver()),
+    conv(ConvolverSelector()),
     plugin1(gain::plugin()),
     plugin2(wet_dry::plugin())
  {};
@@ -240,6 +242,9 @@ void XImpulseLoader::connect_(uint32_t port,void* data)
             break;
         case 6:
             notify = (LV2_Atom_Sequence*)data;
+            break;
+        case 7:
+            norm = static_cast<float*>(data);
             break;
         default:
             break;
@@ -352,6 +357,17 @@ void XImpulseLoader::run_dsp_(uint32_t n_samples)
         _execute.store(true, std::memory_order_release);
         schedule->schedule_work(schedule->handle,  sizeof(bool), &doit);
         _restore.store(false, std::memory_order_release);
+    }
+    // check if normalisation is pressed
+    if (norm_ != static_cast<uint32_t>(*(norm)) && !_execute.load(std::memory_order_acquire)) {
+        norm_ = static_cast<uint32_t>(*(norm));
+        bufsize = cur_bufsize;
+        conv.set_normalisation(norm_);
+        if (ir_file.compare("None") != 0) {
+            _execute.store(true, std::memory_order_release);
+            schedule->schedule_work(schedule->handle,  sizeof(bool), &doit);
+            _restore.store(false, std::memory_order_release);
+        }
     }
 
     // do inplace processing on default
@@ -533,11 +549,6 @@ XImpulseLoader::instantiate(const LV2_Descriptor* descriptor,
         } else {
             printf("using block size: %d\n", bufsize);
         }
-    }
-    if ((bufsize & (bufsize - 1)) == 0) {
-        self->conv.set_convolver(true);
-    } else {
-        self->conv.set_convolver(false);
     }
 
     self->map_uris(self->map);
