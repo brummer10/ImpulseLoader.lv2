@@ -277,6 +277,18 @@ static void draw_my_knob(void *w_, void* user_data) {
     cairo_stroke_preserve (w->crb);
     cairo_new_path (w->crb);
 
+    cairo_save (w->crb);
+    cairo_translate (w->crb, knobx1, knoby1);
+    cairo_rotate (w->crb, angle);
+    cairo_arc(w->crb,0, 0, knob_x/2.4, 0, 2 * M_PI );
+    cairo_pattern_t *pat = cairo_pattern_create_for_surface(w->image);
+    cairo_pattern_set_extend (pat, CAIRO_EXTEND_REPEAT);
+    cairo_set_source(w->crb, pat);
+    cairo_fill (w->crb);
+    cairo_restore (w->crb);
+    cairo_pattern_destroy (pat);
+    cairo_new_path (w->crb);
+
     cairo_arc(w->crb,knobx1, knoby1, knob_x/2.4, 0, 2 * M_PI );
     knobShadowOutset(w->crb, width, height, 0, 0);
     cairo_set_line_width(w->crb,knobx1/10);
@@ -285,10 +297,11 @@ static void draw_my_knob(void *w_, void* user_data) {
     cairo_new_path (w->crb);
 
     cairo_arc(w->crb,knobx1, knoby1, knob_x/3.1, 0, 2 * M_PI );
-    use_bg_color_scheme(w, get_color_state(w));
-    cairo_fill_preserve (w->crb);
+   // use_bg_color_scheme(w, get_color_state(w));
+   // cairo_fill_preserve (w->crb);
     knobShadowInset(w->crb, width, height, 0, 0);
     cairo_new_path (w->crb);
+
 
     /** create a rotating pointer on the kob**/
     cairo_set_line_cap(w->crb, CAIRO_LINE_CAP_ROUND); 
@@ -358,6 +371,7 @@ Widget_t* add_lv2_knob(Widget_t *w, Widget_t *p, PortIndex index, const char * l
     w = add_knob(p, label, x, y, width, height);
     w->parent_struct = ui;
     w->data = index;
+    widget_get_png(w, LDVAR(texture_png));
     w->func.expose_callback = draw_my_knob;
     w->func.value_changed_callback = value_changed;
     return w;
@@ -422,10 +436,17 @@ static void draw_my_switch(void *w_, void* user_data) {
     cairo_set_line_width(wid->crb,1);
     cairo_stroke_preserve (wid->crb);
 
+    cairo_arc(wid->crb,centerW, centerH, h/2.8, 0, 2 * M_PI );
+    cairo_pattern_t *pat = cairo_pattern_create_for_surface(wid->image);
+    cairo_pattern_set_extend (pat, CAIRO_EXTEND_REPEAT);
+    cairo_set_source(wid->crb, pat);
+    cairo_fill (wid->crb);
+    cairo_pattern_destroy (pat);
+
     cairo_new_path(wid->crb);
     cairo_arc(wid->crb,centerW, centerH, h/3.6, 0, 2 * M_PI );
-    if(wid->state==1) use_bg_color_scheme(wid, PRELIGHT_);
-    else use_bg_color_scheme(wid, NORMAL_);
+   // if(wid->state==1) use_bg_color_scheme(wid, PRELIGHT_);
+   // else use_bg_color_scheme(wid, NORMAL_);
     cairo_fill_preserve(wid->crb);
     knobShadowInset(wid->crb, w * 0.5 , h, centerW - centerH, 0);
     cairo_stroke (wid->crb);
@@ -451,6 +472,7 @@ Widget_t* add_lv2_switch(Widget_t *w, Widget_t *p, PortIndex index, const char *
     w = add_toggle_button(p, label, x, y, width, height);
     w->parent_struct = ui;
     w->data = index;
+    widget_get_png(w, LDVAR(texture_png));
     w->func.expose_callback = draw_my_switch;
     w->func.value_changed_callback = value_changed;
     return w;
@@ -526,7 +548,7 @@ void draw_my_button(void *w_, void* user_data) {
 
 Widget_t* add_lv2_button(Widget_t *w, Widget_t *p, const char * label,
                                 X11_UI* ui, int x, int y, int width, int height) {
-    w = add_combobox(p, label, x - 350, y, width + 350, height);
+    w = add_combobox(p, label, x - 340, y, width + 340, height);
     w->parent_struct = ui;
     w->func.expose_callback = dummy_expose;
     w->childlist->childs[0]->func.expose_callback = draw_my_button;
